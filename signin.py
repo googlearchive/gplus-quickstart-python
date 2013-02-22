@@ -1,0 +1,197 @@
+#!/usr/bin/python
+# Copyright 2013 Google Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+"""Simple server to demonstrate how to use Google+ Sign-In."""
+
+__author__ = 'cartland@google.com (Chris Cartland)'
+
+import json
+import random
+import string
+from apiclient.discovery import build
+
+from flask import Flask
+from flask import make_response
+from flask import render_template
+from flask import request
+from flask import session
+
+import httplib2
+from oauth2client.client import AccessTokenRefreshError
+from oauth2client.client import flow_from_clientsecrets
+from oauth2client.client import FlowExchangeError
+
+
+APPLICATION_NAME = 'Google+ Python Quickstart'
+
+
+app = Flask(__name__)
+app.secret_key = ''.join(random.choice(string.ascii_uppercase + string.digits)
+                         for x in xrange(32))
+
+
+# Update client_secrets.json with your Google API project information.
+# Do not change this assignment.
+CLIENT_ID = json.loads(
+    open('client_secrets.json', 'r').read())['web']['client_id']
+
+
+@app.route('/', methods=['GET'])
+def index():
+  """Initialize a session for the current user, and render index.html."""
+  # Create a state token to prevent request forgery.
+  # Store it in the session for later validation.
+  state = ''.join(random.choice(string.ascii_uppercase + string.digits)
+                  for x in xrange(32))
+  session['state'] = state
+  response = make_response(
+      render_template('index.html',
+                      CLIENT_ID=CLIENT_ID,
+                      STATE=state,
+                      APPLICATION_NAME=APPLICATION_NAME))
+  response.headers['Content-Type'] = 'text/html'
+  return response
+
+
+@app.route('/connect', methods=['POST'])
+def connect():
+  """Upgrade given auth code to token, and store it in the session."""
+  # Ensure that this is no request forgery going on, and that the user
+  # sending us this connect request is the user that was supposed to.
+  if request.args.get('state', '') != session['state']:
+    response = make_response(json.dumps('Invalid state parameter.'), 401)
+    response.headers['Content-Type'] = 'application/json'
+    return response
+  # Normally the state would be a one-time use token, however in our
+  # simple case, we want a user to be able to connect and disconnect
+  # without reloading the page.  Thus, for demonstration, we don't
+  # implement this best practice.
+  # del session['state']
+
+  gplus_id = request.args.get('gplus_id')
+  code = request.data
+
+  try:
+    # Upgrade the authorization code into a credentials object
+    oauth_flow = flow_from_clientsecrets('client_secrets.json', scope='')
+    oauth_flow.redirect_uri = 'postmessage'
+    credentials = oauth_flow.step2_exchange(code)
+  except FlowExchangeError:
+    response = make_response(
+        json.dumps('Failed to upgrade the authorization code.'), 401)
+    response.headers['Content-Type'] = 'application/json'
+    return response
+
+  # Check that the token is valid.
+  access_token = credentials.access_token
+  url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s'
+         % access_token)
+  h = httplib2.Http()
+  result = json.loads(h.request(url, 'GET')[1])
+  # If there was an error in the token info, abort.
+  if result.get('error') is not None:
+    response = make_response(json.dumps(result.get('error')), 401)
+    response.headers['Content-Type'] = 'application/json'
+    return response
+  # Make sure the token we got is for the intended user.
+  if result['user_id'] != gplus_id:
+    response = make_response(
+        json.dumps("Token's user ID doesn't match given user ID."), 401)
+    response.headers['Content-Type'] = 'application/json'
+    return response
+  # Make sure the token we got is for our app.
+  if result['issued_to'] != CLIENT_ID:
+    response = make_response(
+        json.dumps("Token's client ID does not match app's."), 401)
+    response.headers['Content-Type'] = 'application/json'
+    return response
+  # Only connect a user that is not already connected.
+  stored_credentials = session.get('credentials')
+  stored_gplus_id = session.get('gplus_id')
+  if stored_credentials is not None and gplus_id == stored_gplus_id:
+    response = make_response(json.dumps('Current user is already connected.'),
+                             200)
+    response.headers['Content-Type'] = 'application/json'
+    return response
+  # Store the token in the session for later use.
+  session['credentials'] = credentials
+  session['gplus_id'] = gplus_id
+  response = make_response(json.dumps('Successfully connected user.', 200))
+  response.headers['Content-Type'] = 'application/json'
+  return response
+
+
+@app.route('/disconnect', methods=['POST'])
+def disconnect():
+  """Revoke current user's token and reset their session."""
+
+  # Only disconnect a connected user.
+  credentials = session.get('credentials')
+  if credentials is None:
+    response = make_response(json.dumps('Current user not connected.'), 401)
+    response.headers['Content-Type'] = 'application/json'
+    return response
+
+  # Execute HTTP GET request to revoke current token.
+  access_token = credentials.access_token
+  url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % access_token
+  h = httplib2.Http()
+  result = h.request(url, 'GET')[0]
+
+  if result['status'] == '200':
+    # Reset the user's session.
+    del session['credentials']
+    response = make_response(json.dumps('Successfully disconnected.'), 200)
+    response.headers['Content-Type'] = 'application/json'
+    return response
+  else:
+    # For whatever reason, the given token was invalid.
+    response = make_response(
+        json.dumps('Failed to revoke token for given user.', 400))
+    response.headers['Content-Type'] = 'application/json'
+    return response
+
+
+@app.route('/people', methods=['GET'])
+def people():
+  """Get list of people user has shared with this app."""
+  credentials = session.get('credentials')
+  # Only fetch a list of people for connected users.
+  if credentials is None:
+    response = make_response(json.dumps('Current user not connected.'), 401)
+    response.headers['Content-Type'] = 'application/json'
+    return response
+  try:
+    # Create a new authorized API client.
+    http = httplib2.Http()
+    http = credentials.authorize(http)
+    service = build('plus', 'v1', http=http)
+    # Get a list of people that this user has shared with this app.
+    google_request = service.people().list(userId='me', collection='visible')
+    result = google_request.execute()
+
+    response = make_response(json.dumps(result), 200)
+    response.headers['Content-Type'] = 'application/json'
+    return response
+  except AccessTokenRefreshError:
+    response = make_response(json.dumps('Failed to refresh access token.'), 500)
+    response.headers['Content-Type'] = 'application/json'
+    return response
+
+
+if __name__ == '__main__':
+  app.debug = True
+  app.run(host='0.0.0.0', port=4567)
