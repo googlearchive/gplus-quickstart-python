@@ -52,35 +52,43 @@ CLIENT_ID = json.loads(
 @app.route('/', methods=['GET'])
 def index():
   """Initialize a session for the current user, and render index.html."""
+  # [START create_state_token]
   # Create a state token to prevent request forgery.
   # Store it in the session for later validation.
   state = ''.join(random.choice(string.ascii_uppercase + string.digits)
                   for x in xrange(32))
   session['state'] = state
+  # Set the Client ID, Token State, and Application Name in the HTML while
+  # serving it.
   response = make_response(
       render_template('index.html',
                       CLIENT_ID=CLIENT_ID,
                       STATE=state,
                       APPLICATION_NAME=APPLICATION_NAME))
+  # [END create_state_token]
   response.headers['Content-Type'] = 'text/html'
   return response
 
 
 @app.route('/connect', methods=['POST'])
 def connect():
-  """Upgrade given auth code to token, and store it in the session."""
-  # Ensure that this is no request forgery going on, and that the user
-  # sending us this connect request is the user that was supposed to.
+  """Exchange the one-time authorization code for a token and
+  store the token in the session."""
+  # [START confirm_state_token]
+  # Ensure that the request is not a forgery and that the user sending
+  # this connect request is the expected user.
   if request.args.get('state', '') != session['state']:
     response = make_response(json.dumps('Invalid state parameter.'), 401)
     response.headers['Content-Type'] = 'application/json'
     return response
-  # Normally the state would be a one-time use token, however in our
-  # simple case, we want a user to be able to connect and disconnect
+  # [END confirm_state_token]
+  # Normally, the state is a one-time token; however, in this example,
+  # we want the user to be able to connect and disconnect
   # without reloading the page.  Thus, for demonstration, we don't
   # implement this best practice.
   # del session['state']
 
+  # [START initialize_google_api]
   gplus_id = request.args.get('gplus_id')
   code = request.data
 
@@ -95,30 +103,29 @@ def connect():
     response.headers['Content-Type'] = 'application/json'
     return response
 
-  # Check that the token is valid.
+  # Check that the access token is valid.
   access_token = credentials.access_token
   url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s'
          % access_token)
   h = httplib2.Http()
   result = json.loads(h.request(url, 'GET')[1])
-  # If there was an error in the token info, abort.
+  # If there was an error in the access token info, abort.
   if result.get('error') is not None:
-    response = make_response(json.dumps(result.get('error')), 401)
+    response = make_response(json.dumps(result.get('error')), 500)
     response.headers['Content-Type'] = 'application/json'
     return response
-  # Make sure the token we got is for the intended user.
+  # Verify that the access token is used for the intended user.
   if result['user_id'] != gplus_id:
     response = make_response(
         json.dumps("Token's user ID doesn't match given user ID."), 401)
     response.headers['Content-Type'] = 'application/json'
     return response
-  # Make sure the token we got is for our app.
+  # Verify that the access token is valid for this app.
   if result['issued_to'] != CLIENT_ID:
     response = make_response(
         json.dumps("Token's client ID does not match app's."), 401)
     response.headers['Content-Type'] = 'application/json'
     return response
-  # Only connect a user that is not already connected.
   stored_credentials = session.get('credentials')
   stored_gplus_id = session.get('gplus_id')
   if stored_credentials is not None and gplus_id == stored_gplus_id:
@@ -126,10 +133,11 @@ def connect():
                              200)
     response.headers['Content-Type'] = 'application/json'
     return response
-  # Store the token in the session for later use.
+  # Store the access token in the session for later use.
   session['credentials'] = credentials
   session['gplus_id'] = gplus_id
   response = make_response(json.dumps('Successfully connected user.', 200))
+  # [END initialize_google_api]
   response.headers['Content-Type'] = 'application/json'
   return response
 
