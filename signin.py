@@ -52,7 +52,6 @@ CLIENT_ID = json.loads(
 @app.route('/', methods=['GET'])
 def index():
   """Initialize a session for the current user, and render index.html."""
-  # [START create_state_token]
   # Create a state token to prevent request forgery.
   # Store it in the session for later validation.
   state = ''.join(random.choice(string.ascii_uppercase + string.digits)
@@ -65,7 +64,6 @@ def index():
                       CLIENT_ID=CLIENT_ID,
                       STATE=state,
                       APPLICATION_NAME=APPLICATION_NAME))
-  # [END create_state_token]
   response.headers['Content-Type'] = 'text/html'
   return response
 
@@ -74,21 +72,18 @@ def index():
 def connect():
   """Exchange the one-time authorization code for a token and
   store the token in the session."""
-  # [START confirm_state_token]
   # Ensure that the request is not a forgery and that the user sending
   # this connect request is the expected user.
   if request.args.get('state', '') != session['state']:
     response = make_response(json.dumps('Invalid state parameter.'), 401)
     response.headers['Content-Type'] = 'application/json'
     return response
-  # [END confirm_state_token]
   # Normally, the state is a one-time token; however, in this example,
   # we want the user to be able to connect and disconnect
   # without reloading the page.  Thus, for demonstration, we don't
   # implement this best practice.
   # del session['state']
 
-  # [START initialize_google_api]
   gplus_id = request.args.get('gplus_id')
   code = request.data
 
@@ -137,7 +132,6 @@ def connect():
   session['credentials'] = credentials
   session['gplus_id'] = gplus_id
   response = make_response(json.dumps('Successfully connected user.', 200))
-  # [END initialize_google_api]
   response.headers['Content-Type'] = 'application/json'
   return response
 
