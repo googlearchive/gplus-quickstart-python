@@ -34,6 +34,9 @@ from oauth2client.client import AccessTokenRefreshError
 from oauth2client.client import flow_from_clientsecrets
 from oauth2client.client import FlowExchangeError
 
+from simplekv.memory import DictStore
+from flaskext.kvsession import KVSessionExtension
+
 
 APPLICATION_NAME = 'Google+ Python Quickstart'
 
@@ -41,6 +44,14 @@ APPLICATION_NAME = 'Google+ Python Quickstart'
 app = Flask(__name__)
 app.secret_key = ''.join(random.choice(string.ascii_uppercase + string.digits)
                          for x in xrange(32))
+
+
+# See the simplekv documentation for details
+store = DictStore()
+
+
+# This will replace the app's session handling
+KVSessionExtension(store, app)
 
 
 # Update client_secrets.json with your Google API project information.
