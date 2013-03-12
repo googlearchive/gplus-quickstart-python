@@ -1,0 +1,10 @@
+Flask==0.9
+Flask-KVSession==0.3.2
+Jinja2==2.6
+Werkzeug==0.8.3
+google-api-python-client==1.1
+httplib2==0.8
+itsdangerous==0.17
+python-gflags==2.0
+simplekv==0.5
+wsgiref==0.1.2
