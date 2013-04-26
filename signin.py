@@ -95,7 +95,6 @@ def connect():
   # implement this best practice.
   # del session['state']
 
-  gplus_id = request.args.get('gplus_id')
   code = request.data
 
   try:
@@ -109,29 +108,16 @@ def connect():
     response.headers['Content-Type'] = 'application/json'
     return response
 
-  # Check that the access token is valid.
-  access_token = credentials.access_token
-  url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s'
-         % access_token)
-  h = httplib2.Http()
-  result = json.loads(h.request(url, 'GET')[1])
-  # If there was an error in the access token info, abort.
-  if result.get('error') is not None:
-    response = make_response(json.dumps(result.get('error')), 500)
-    response.headers['Content-Type'] = 'application/json'
-    return response
-  # Verify that the access token is used for the intended user.
-  if result['user_id'] != gplus_id:
-    response = make_response(
-        json.dumps("Token's user ID doesn't match given user ID."), 401)
-    response.headers['Content-Type'] = 'application/json'
-    return response
-  # Verify that the access token is valid for this app.
-  if result['issued_to'] != CLIENT_ID:
-    response = make_response(
-        json.dumps("Token's client ID does not match app's."), 401)
-    response.headers['Content-Type'] = 'application/json'
-    return response
+  # An ID Token is a cryptographically-signed JSON object encoded in base 64.
+  # Normally, it is critical that you validate an ID Token before you use it,
+  # but since you are communicating directly with Google over an
+  # intermediary-free HTTPS channel and using your Client Secret to
+  # authenticate yourself to Google, you can be confident that the token you
+  # receive really comes from Google and is valid. If your server passes the
+  # ID Token to other components of your app, it is extremely important that
+  # the other components validate the token before using it.
+  gplus_id = credentials.id_token['sub']
+
   stored_credentials = session.get('credentials')
   stored_gplus_id = session.get('gplus_id')
   if stored_credentials is not None and gplus_id == stored_gplus_id:
