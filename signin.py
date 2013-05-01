@@ -58,6 +58,7 @@ KVSessionExtension(store, app)
 # Do not change this assignment.
 CLIENT_ID = json.loads(
     open('client_secrets.json', 'r').read())['web']['client_id']
+SERVICE = build('plus', 'v1')
 
 
 @app.route('/', methods=['GET'])
@@ -177,10 +178,9 @@ def people():
     # Create a new authorized API client.
     http = httplib2.Http()
     http = credentials.authorize(http)
-    service = build('plus', 'v1', http=http)
     # Get a list of people that this user has shared with this app.
-    google_request = service.people().list(userId='me', collection='visible')
-    result = google_request.execute()
+    google_request = SERVICE.people().list(userId='me', collection='visible')
+    result = google_request.execute(http=http)
 
     response = make_response(json.dumps(result), 200)
     response.headers['Content-Type'] = 'application/json'
