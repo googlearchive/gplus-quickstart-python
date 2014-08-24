@@ -71,7 +71,11 @@
 </body>
 <script type="text/javascript">
 var helper = (function() {
-  var authResult = undefined;
+  var authResult = undefined , location_href = window.location.href ;
+
+  location_href = location_href.slice(-1) === "/" ?
+                  location_href.slice(0, -1) :
+                  location_href ;
 
   return {
     /**
@@ -133,7 +137,7 @@ var helper = (function() {
       // Revoke the server tokens
       $.ajax({
         type: 'POST',
-        url: window.location.href + '/disconnect',
+        url: location_href + '/disconnect',
         async: false,
         success: function(result) {
           console.log('revoke response: ' + result);
@@ -159,7 +163,7 @@ var helper = (function() {
       console.log(this.authResult.code);
       $.ajax({
         type: 'POST',
-        url: window.location.href + '/connect?state={{ STATE }}',
+        url: location_href + '/connect?state={{ STATE }}',
         contentType: 'application/octet-stream; charset=utf-8',
         success: function(result) {
           console.log(result);
@@ -175,7 +179,7 @@ var helper = (function() {
     people: function() {
       $.ajax({
         type: 'GET',
-        url: window.location.href + '/people',
+        url: location_href + '/people',
         contentType: 'application/octet-stream; charset=utf-8',
         success: function(result) {
           helper.appendCircled(result);

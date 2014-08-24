@@ -35,7 +35,7 @@ from oauth2client.client import flow_from_clientsecrets
 from oauth2client.client import FlowExchangeError
 
 from simplekv.memory import DictStore
-from flaskext.kvsession import KVSessionExtension
+from flask_kvsession import KVSessionExtension
 
 
 APPLICATION_NAME = 'Google+ Python Quickstart'
