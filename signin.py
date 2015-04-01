@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2013 Google Inc. All Rights Reserved.
+# Copyright 2015 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ from flask import Flask
 from flask import make_response
 from flask import render_template
 from flask import request
+from flask import send_file
 from flask import session
 
 import httplib2
@@ -79,6 +80,10 @@ def index():
   response.headers['Content-Type'] = 'text/html'
   return response
 
+@app.route('/signin_button.png', methods=['GET'])
+def signin_button():
+  """Returns the button image for sign-in."""
+  return send_file("templates/signin_button.png", mimetype='image/gif')
 
 @app.route('/connect', methods=['POST'])
 def connect():
