@@ -1,4 +1,4 @@
-Flask==0.9
+Flask==0.10
 Flask-KVSession==0.3.2
 Jinja2==2.6
 Werkzeug==0.8.3
