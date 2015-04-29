@@ -134,7 +134,7 @@ def connect():
   # Store the access token in the session for later use.
   session['credentials'] = credentials
   session['gplus_id'] = gplus_id
-  response = make_response(json.dumps('Successfully connected user.', 200))
+  response = make_response(json.dumps('Successfully connected user.'), 200)
   response.headers['Content-Type'] = 'application/json'
   return response
 
