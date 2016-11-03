@@ -21,7 +21,7 @@ __author__ = 'cartland@google.com (Chris Cartland)'
 import json
 import random
 import string
-from apiclient.discovery import build
+from googleapiclient.discovery import build
 
 from flask import Flask
 from flask import make_response
